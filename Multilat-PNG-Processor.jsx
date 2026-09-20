@@ -5,7 +5,7 @@
  * Purpose: Batch Convert Open Documents Or Any Folder Of Images To PNG
  *          While Preserving The Source Folder Structure
  *
- * Version: 1.2
+ * Version: 1.3
  * Author: Multilat
  */
 
@@ -14,9 +14,31 @@
     // ================= Helpers =================
 
     function ensureFolder(folder) {
+        if (folder === null) { return false; }
         if (folder.exists) { return true; }
-        ensureFolder(folder.parent);
+        var parent = folder.parent;
+        // A Volume Root Reports Itself Or null As Its Parent. Without This The
+        // Recursion Never Terminates, And An Unreachable Path Such As A
+        // Disconnected Mapped Drive Crashes Photoshop On Stack Overflow.
+        if (parent === null || parent.fsName === folder.fsName) { return false; }
+        if (!ensureFolder(parent)) { return false; }
         return folder.create();
+    }
+
+    // String.trim Is ES5 And Absent From Older ExtendScript
+    function trimStr(text) {
+        return String(text).replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, "");
+    }
+
+    // Paths Are Compared Case-Insensitively Because Windows Is Always
+    // Case-Insensitive And macOS Volumes Are By Default. Treating Them As
+    // Case-Sensitive Risks Writing Over A Source File.
+    function samePath(a, b) {
+        return String(a).toLowerCase() === String(b).toLowerCase();
+    }
+
+    function stripTrailingSep(path) {
+        return String(path).replace(/[\\\/]+$/, "");
     }
 
     // macOS Uses Forward Slashes, Windows Backslashes. Building Paths From
@@ -33,9 +55,14 @@
     var RAW_FORMATS = /\.(dng|cr2|cr3|nef|nrw|arw|srf|sr2|orf|raf|rw2|pef|raw|erf|mrw|dcr|kdc|x3f|3fr|mef|iiq)$/i;
 
     function collectFiles(folder, includeSub, includeRaw, out) {
+        // getFiles() Returns null For A Folder This Process Cannot Read, Such
+        // As One Blocked By macOS Privacy Controls Or A Dropped Network Mount.
         var items = folder.getFiles();
+        if (!items) { return out; }
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
+            // An Alias Pointing At An Ancestor Would Recurse Without End
+            if (item.alias) { continue; }
             if (item instanceof Folder) {
                 if (includeSub) { collectFiles(item, includeSub, includeRaw, out); }
             } else if (item instanceof File) {
@@ -66,7 +93,7 @@
      * Script Never Touched. Going Through The Action Manager Sends The Method
      * Explicitly And Matches What Photoshop's Own Save Does.
      */
-    function saveCopyAsPng(doc, outFile, methodId, compressionLevel, isInterlaced, embedProfile) {
+    function saveCopyAsPng(doc, outFile, methodId, compressionLevel, isInterlaced) {
         function s2t(name) { return app.stringIDToTypeID(name); }
 
         app.activeDocument = doc;
@@ -80,10 +107,6 @@
         // compression Is Only Read When The Method Is "quick"
         if (methodId === "quick") {
             format.putInteger(s2t("compression"), compressionLevel);
-        }
-
-        if (embedProfile) {
-            format.putEnumerated(s2t("embedIccProfileLastState"), s2t("embedOff"), s2t("embedOn"));
         }
 
         var desc = new ActionDescriptor();
@@ -102,14 +125,22 @@
      * Setting We Asked For.
      */
     function pngHasIccProfile(file) {
+        // A Separate File Object, So The Caller's Is Never Left In BINARY Mode
+        var probe = new File(file.fsName);
         try {
-            file.encoding = "BINARY";
-            if (!file.open("r")) { return false; }
-            var head = file.read(65536);   // iCCP Always Precedes The Image Data
-            file.close();
-            return head.indexOf("iCCP") !== -1;
+            probe.encoding = "BINARY";
+            if (!probe.open("r")) { return false; }
+            var head = probe.read(65536);
+            probe.close();
+
+            // iCCP Always Precedes The Image Data, So Stop At The First IDAT.
+            // Searching The Whole Buffer Would Let Compressed Pixel Data
+            // Coincidentally Spell iCCP And Report A Profile That Is Not There.
+            var end = head.indexOf("IDAT");
+            if (end === -1) { end = head.length; }
+            return head.substring(0, end).indexOf("iCCP") !== -1;
         } catch (readError) {
-            try { file.close(); } catch (ignored) {}
+            try { probe.close(); } catch (ignored) {}
             return false;
         }
     }
@@ -239,8 +270,6 @@
 
     var cbOverwrite = pPrefs.add("checkbox", undefined, "Overwrite Existing PNG Files");
     cbOverwrite.value = false;
-    var cbProfile = pPrefs.add("checkbox", undefined, "Embed Color Profile");
-    cbProfile.value = true;
     var cbLog = pPrefs.add("checkbox", undefined, "Write Log File");
     cbLog.value = true;
 
@@ -278,10 +307,13 @@
         }
         syncEnabled();
     }
-    rbLarge.onClick  = function () { selectCompression(rbLarge); };
-    rbMedium.onClick = function () { selectCompression(rbMedium); };
-    rbSmall.onClick  = function () { selectCompression(rbSmall); };
-    rbCustom.onClick = function () { selectCompression(rbCustom); };
+    // onChange Is Wired Too, Because Arrowing Through A Native Radio Group
+    // Does Not Fire onClick On Every ScriptUI Build, Which Would Leave Two
+    // Of These Selected At Once.
+    rbLarge.onClick  = rbLarge.onChange  = function () { selectCompression(rbLarge); };
+    rbMedium.onClick = rbMedium.onChange = function () { selectCompression(rbMedium); };
+    rbSmall.onClick  = rbSmall.onChange  = function () { selectCompression(rbSmall); };
+    rbCustom.onClick = rbCustom.onChange = function () { selectCompression(rbCustom); };
 
     // Enforce Exclusivity Manually, Because The Paired Radios Do Not Share A Parent
     rbOpen.onClick = function () {
@@ -333,9 +365,11 @@
     if (rbLarge.value)       { pngMethod = "quick";    compression = 1; }
     else if (rbMedium.value) { pngMethod = "moderate"; }
     else if (rbSmall.value)  { pngMethod = "thorough"; }
-    else if (rbCustom.value) { pngMethod = "quick";    compression = ddComp.selection.index; }
+    else if (rbCustom.value) {
+        pngMethod = "quick";
+        compression = (ddComp.selection !== null) ? ddComp.selection.index : 6;
+    }
     var interlaced   = cbInterlaced.value;
-    var embedProfile = cbProfile.value;
     var doResize     = cbResize.value;
     var maxW         = parseInt(txtW.text, 10);
     var maxH         = parseInt(txtH.text, 10);
@@ -349,16 +383,37 @@
 
     var sourceFolder = null;
     if (!useOpenFiles) {
-        if (txtSource.text === "") { alert("No Source Folder Was Selected."); return; }
-        sourceFolder = new Folder(txtSource.text);
-        if (!sourceFolder.exists) { alert("Source Folder Does Not Exist:\n" + txtSource.text); return; }
+        // Paths Pasted From Finder Or Explorer Often Carry Trailing Whitespace
+        var sourcePath = trimStr(txtSource.text);
+        if (sourcePath === "") { alert("No Source Folder Was Selected."); return; }
+        sourceFolder = new Folder(sourcePath);
+        if (!sourceFolder.exists) { alert("Source Folder Does Not Exist:\n" + sourcePath); return; }
     }
 
     var destFolder = null;
     if (!saveSame) {
-        if (txtDest.text === "") { alert("No Destination Folder Was Selected."); return; }
-        destFolder = new Folder(txtDest.text);
-        if (!ensureFolder(destFolder)) { alert("Destination Folder Could Not Be Created:\n" + txtDest.text); return; }
+        var destPath = trimStr(txtDest.text);
+        if (destPath === "") { alert("No Destination Folder Was Selected."); return; }
+        destFolder = new Folder(destPath);
+        if (!ensureFolder(destFolder)) {
+            alert("Destination Folder Could Not Be Created:\n" + destPath +
+                  "\n\nCheck That The Drive Is Connected And Writable.");
+            return;
+        }
+    }
+
+    // A Destination Inside The Source Survives One Run, Because The File List Is
+    // Built Up Front. On The Next Run The Previous Output Is Collected As Input
+    // And The Tree Nests One Level Deeper Each Time.
+    if (sourceFolder !== null && destFolder !== null) {
+        var srcRoot  = stripTrailingSep(sourceFolder.fsName);
+        var destRoot = stripTrailingSep(destFolder.fsName);
+        if (samePath(destRoot.substring(0, srcRoot.length), srcRoot)) {
+            alert("The Destination Folder Is Inside The Source Folder.\n\n" +
+                  "Choose A Destination Outside It, Or The Next Run Will " +
+                  "Convert This Run's Output Again.");
+            return;
+        }
     }
 
     // ================= Build The Work List =================
@@ -392,6 +447,12 @@
     app.displayDialogs = DialogModes.NO;
     app.preferences.rulerUnits = Units.PIXELS;
 
+    // Everything From Here To The finally Runs With Photoshop's Preferences
+    // Changed. Without finally, A Throw Anywhere In Between Would Leave Dialogs
+    // Suppressed And Rulers Pinned To Pixels For The Rest Of The Session, With
+    // Nothing To Tell The User Why.
+    try {
+
     var converted = 0;
     var skipped   = [];
     var failed    = [];
@@ -403,6 +464,9 @@
     var totalMs    = 0;
     var totalBytes = 0;
     var profilesEmbedded = 0;
+
+    // Claimed Output Paths, So Two Sources Cannot Quietly Map To One File
+    var usedNames = {};
 
     // Esc Is The Habitual Way To Stop A Script, So Honour It As Well As The
     // Stop Button. keyboardState Is Not Available Everywhere, Hence The Guard.
@@ -444,6 +508,7 @@
 
         progress.center();
         progressText.text = "Starting " + jobs.length + " File(s)...";
+        progress.add("statictext", undefined, "Press Stop, Or Hold Esc, To Finish After The Current File");
         progress.show();
 
         // A Palette Is Only Painted When The Script Yields, And The Conversion
@@ -482,6 +547,9 @@
             // Must Not Prevent The update() Call Below From Running.
             try { progress.layout.layout(true); } catch (noLayout) {}
             progress.update();
+            // update() Repaints But Does Not Pump The Message Queue, So Without
+            // This The Stop Button Can Never Receive A Click Mid-Run.
+            app.refresh();
         } catch (paintError) {
             // A Progress Window That Cannot Repaint Must Never Stop The Run
         }
@@ -504,7 +572,9 @@
             // --- Resolve The Document ---
             if (job.doc !== null) {
                 doc = job.doc;
-                label = baseName(doc.name);
+                // Document.name Is A Plain Display String, Unlike File.name,
+                // So It Must Not Be Passed Through decodeURI
+                label = String(doc.name).replace(/\.[^\.]+$/, "");
             } else {
                 label = baseName(job.file.name);
             }
@@ -532,8 +602,15 @@
             if (saveSame) {
                 outFolder = new Folder(srcFolderFs);
             } else if (keepTree && sourceFolder !== null) {
-                var rel = srcFolderFs.substring(sourceFolder.fsName.length);
-                outFolder = new Folder(destFolder.fsName + rel);
+                // Slice Only When The Prefix Genuinely Matches. A Trailing
+                // Separator, An Alias, Or A Windows Short Name Would Otherwise
+                // Produce A Relative Path That Lands Somewhere Unrelated.
+                var base = stripTrailingSep(sourceFolder.fsName);
+                var rel  = samePath(srcFolderFs.substring(0, base.length), base)
+                    ? srcFolderFs.substring(base.length)
+                    : "";
+                if (rel !== "" && rel.charAt(0) !== SEP) { rel = SEP + rel; }
+                outFolder = new Folder(stripTrailingSep(destFolder.fsName) + rel);
             } else {
                 outFolder = destFolder;
             }
@@ -543,7 +620,11 @@
                 continue;
             }
 
-            var png = new File(outFolder.fsName + SEP + label + ".png");
+            // The File Constructor Decodes %xx, And label Has Already Been
+            // Decoded Once. Without Re-Escaping, "100%20off" Would Be Written
+            // To Disk As "100 off".
+            var outBase = stripTrailingSep(outFolder.fsName);
+            var png = new File(outBase + SEP + label.replace(/%/g, "%25") + ".png");
 
             // Never Let A Source PNG Be Written Over Itself
             var sourceFs = "";
@@ -552,10 +633,21 @@
             } else {
                 sourceFs = job.file.fsName;
             }
-            if (sourceFs === png.fsName) {
+            if (samePath(sourceFs, png.fsName)) {
                 skipped.push(label + ".png - Source Is Already PNG In This Location");
                 continue;
             }
+
+            // Two Different Sources Can Produce The Same Output Name, Either
+            // From Different Subfolders Flattened Into One Destination Or From
+            // The Same Folder With Different Extensions. Silently Overwriting
+            // One With The Other Would Lose A File.
+            var claimKey = String(png.fsName).toLowerCase();
+            if (usedNames[claimKey] !== undefined) {
+                failed.push(label + ".png - Output Name Already Used By " + usedNames[claimKey]);
+                continue;
+            }
+            usedNames[claimKey] = label;
 
             if (png.exists && !overwrite) {
                 skipped.push(label + ".png - Already Exists");
@@ -564,7 +656,17 @@
 
             // --- Open If Needed ---
             if (doc === null) {
-                doc = app.open(job.file);
+                // Without Explicit Options, A Raw File Opens The Camera Raw
+                // Dialog And The Batch Stops Dead Waiting For A Click.
+                if (RAW_FORMATS.test(decodeURI(job.file.name))) {
+                    try {
+                        doc = app.open(job.file, new CameraRAWOpenOptions());
+                    } catch (rawError) {
+                        doc = app.open(job.file);
+                    }
+                } else {
+                    doc = app.open(job.file);
+                }
                 openedHere = true;
             }
 
@@ -575,8 +677,9 @@
             app.activeDocument = doc;
 
             // --- Formats PNG Cannot Hold ---
-            if (doc.mode === DocumentMode.CMYK || doc.mode === DocumentMode.LAB) {
-                failed.push(label + " - Color Mode Is Not RGB, Left Unconverted");
+            if (doc.mode === DocumentMode.CMYK || doc.mode === DocumentMode.LAB ||
+                doc.mode === DocumentMode.DUOTONE || doc.mode === DocumentMode.MULTICHANNEL) {
+                failed.push(label + " - Color Mode Cannot Be Written As PNG, Left Unconverted");
                 if (openedHere) { doc.close(SaveOptions.DONOTSAVECHANGES); }
                 doc = null;
                 continue;
@@ -600,45 +703,55 @@
             // asCopy = true Leaves The Source Document Untouched
             var startedAt = new Date().getTime();
             try {
-                saveCopyAsPng(work, png, pngMethod, compression, interlaced, embedProfile);
+                saveCopyAsPng(work, png, pngMethod, compression, interlaced);
             } catch (amError) {
-                // Fall Back To The DOM Save So A Run Never Dies On This Alone
-                usedFallback = true;
+                // Fall Back To The DOM Save So A Run Never Dies On This Alone.
+                // The Flag Is Set Only After The Fallback Succeeds, Otherwise A
+                // Genuine Failure Would Report That Files Were Written With The
+                // Wrong Settings When Nothing Was Written At All.
                 work.saveAs(png, opts, true, Extension.LOWERCASE);
+                usedFallback = true;
             }
             var elapsedMs = new Date().getTime() - startedAt;
 
             var writtenBytes = 0;
             try { writtenBytes = png.length; } catch (noSize) { writtenBytes = 0; }
 
-            if (embedProfile && pngHasIccProfile(png)) { profilesEmbedded++; }
+            if (pngHasIccProfile(png)) { profilesEmbedded++; }
             totalMs += elapsedMs;
             totalBytes += writtenBytes;
             timings.push(label + " | " + elapsedMs + " ms | " + Math.round(writtenBytes / 1024) + " KB");
 
             converted++;
 
-            if (work !== doc) { work.close(SaveOptions.DONOTSAVECHANGES); }
-            work = null;
-            if (openedHere) { doc.close(SaveOptions.DONOTSAVECHANGES); }
-            doc = null;
-
         } catch (e) {
             failed.push(label + " - " + e.message);
-            try {
-                if (work !== null && work !== doc) { work.close(SaveOptions.DONOTSAVECHANGES); }
-                if (openedHere && doc !== null) { doc.close(SaveOptions.DONOTSAVECHANGES); }
-            } catch (ignored) {}
         }
+
+        // Cleanup Sits Outside The try Above For Two Reasons. A Throwing
+        // close() Must Not Add A File That Already Converted To The Failed List
+        // As Well, Which Would Make The Tallies Disagree. And Each close() Needs
+        // Its Own Guard, Or A Failure Closing The Resize Duplicate Would Strand
+        // The Document This Script Opened, Leaking One Per File Across A Batch.
+        try {
+            if (work !== null && work !== doc) { work.close(SaveOptions.DONOTSAVECHANGES); }
+        } catch (closeWorkError) {}
+        try {
+            if (openedHere && doc !== null) { doc.close(SaveOptions.DONOTSAVECHANGES); }
+        } catch (closeDocError) {}
+        work = null;
+        doc = null;
     }
 
     if (progress !== null) {
         pumpProgress("Finishing...", jobs.length);
-        progress.close();
+        try { progress.close(); } catch (closeProgressError) {}
     }
 
-    app.displayDialogs = savedDialogs;
-    app.preferences.rulerUnits = savedUnits;
+    } finally {
+        app.displayDialogs = savedDialogs;
+        app.preferences.rulerUnits = savedUnits;
+    }
 
     // ================= Report =================
 
@@ -649,15 +762,14 @@
     lines.push("PNG Method: " + pngMethod +
                (pngMethod === "quick" ? " (Compression " + compression + ")" : "") +
                (interlaced ? " + Interlaced" : ""));
-    if (!embedProfile) {
-        lines.push("Color Profile: Not Requested");
-    } else if (profilesEmbedded === converted && converted > 0) {
+    if (profilesEmbedded === converted && converted > 0) {
         lines.push("Color Profile: Embedded And Verified In All " + converted + " File(s)");
     } else if (profilesEmbedded > 0) {
         lines.push("Color Profile: Embedded In Only " + profilesEmbedded + " Of " + converted + " File(s)");
     } else {
-        lines.push("Color Profile: REQUESTED BUT NOT EMBEDDED - Photoshop Wrote No iCCP Chunk.");
-        lines.push("               Output Is Untagged And Will Be Read As sRGB.");
+        lines.push("Color Profile: None. Photoshop Does Not Write An ICC Profile");
+        lines.push("               Into A PNG, By Script Or By Hand. Output Is");
+        lines.push("               Untagged And Will Be Read As sRGB.");
     }
     if (usedFallback) {
         lines.push("WARNING: Action Manager Save Failed On At Least One File;");
@@ -702,7 +814,7 @@
             log.encoding = "UTF-8";
             // ExtendScript Rewrites Line Endings To The Platform Default, Which
             // On macOS Collapses "\r\n" To A Bare CR And Leaves The Log As One
-            // Unreadable Line. Pin It To Unix Line Endings Instead.
+            // Unreadable Line. Pin It To The Platform's Convention Instead.
             log.lineFeed = LINE_END;
             log.open("w");
             log.write(lines.join("\n"));

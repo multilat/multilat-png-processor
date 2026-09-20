@@ -4,7 +4,7 @@ Batch converts open documents or any folder of images to PNG, preserving
 the source folder structure. Modelled on Adobe's Image Processor, which
 does not offer PNG output.
 
-- **Version:** 1.2
+- **Version:** 1.3
 - **Type:** ExtendScript (`.jsx`)
 - **Requires:** Photoshop CS6 or newer (see Older Versions below)
 
@@ -64,8 +64,7 @@ scanned for scripts, unlike other preset types.
    folder with the source tree recreated.
 3. **File Type** — the three named levels are Photoshop's own PNG
    methods. Custom exposes compression 0 to 9.
-4. **Preferences** — overwrite existing PNGs, embed the colour profile,
-   write a log file.
+4. **Preferences** — overwrite existing PNGs, write a log file.
 
 A progress window reports position and carries a **Stop** button. Esc
 also stops the run. Either takes effect between files, never mid-write.
@@ -102,8 +101,12 @@ files that are slower to write. Use 1 for speed, not 0.
 ### Colour Profiles
 
 Photoshop does not embed an ICC profile in a PNG, from a script or by
-hand. Output carries XMP metadata only. The script verifies each written
-file for an `iCCP` chunk and reports honestly rather than assuming.
+hand — a manual "Save a Copy" produces no `iCCP` chunk either. Output
+carries XMP metadata only.
+
+There is therefore no option for it. The script checks every written file
+for an `iCCP` chunk and reports what it finds, so if a future Photoshop
+gains the ability the log will say so.
 
 Untagged PNG is read as sRGB everywhere, so sRGB sources come out
 correct.
