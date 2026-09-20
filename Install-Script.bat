@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM Multilat PNG Processor Installer (Windows)
-REM Right-Click This File And Choose "Run As Administrator"
+REM Right-Click This File and Choose "Run As Administrator"
 
 REM Photoshop's Presets Folder Lives Under Program Files, Which Is Protected,
 REM So This Installer Re-Launches Itself Elevated If It Is Not Already.

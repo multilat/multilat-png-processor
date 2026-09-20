@@ -2,7 +2,7 @@
 
 /*
  * Multilat PNG Processor
- * Purpose: Batch Convert Open Documents Or Any Folder Of Images To PNG
+ * Purpose: Batch Convert Open Documents or Any Folder of Images To PNG
  *          While Preserving The Source Folder Structure
  *
  * Version: 1.4
@@ -17,21 +17,21 @@
         if (folder === null) { return false; }
         if (folder.exists) { return true; }
         var parent = folder.parent;
-        // A Volume Root Reports Itself Or null As Its Parent. Without This The
-        // Recursion Never Terminates, And An Unreachable Path Such As A
-        // Disconnected Mapped Drive Crashes Photoshop On Stack Overflow.
+        // A Volume Root Reports Itself or null As Its Parent. Without This The
+        // Recursion Never Terminates, and An Unreachable Path Such As A
+        // Disconnected Mapped Drive Crashes Photoshop on Stack Overflow.
         if (parent === null || parent.fsName === folder.fsName) { return false; }
         if (!ensureFolder(parent)) { return false; }
         return folder.create();
     }
 
-    // String.trim Is ES5 And Absent From Older ExtendScript
+    // String.trim Is ES5 and Absent From Older ExtendScript
     function trimStr(text) {
         return String(text).replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, "");
     }
 
     // Paths Are Compared Case-Insensitively Because Windows Is Always
-    // Case-Insensitive And macOS Volumes Are By Default. Treating Them As
+    // Case-Insensitive and macOS Volumes Are By Default. Treating Them As
     // Case-Sensitive Risks Writing Over A Source File.
     function samePath(a, b) {
         return String(a).toLowerCase() === String(b).toLowerCase();
@@ -46,8 +46,8 @@
      *
      * Open Documents Have No Single Chosen Source Folder, So When Their Tree
      * Has To Be Recreated Somewhere Else The Root Is Derived From The Documents
-     * Themselves. Files Spread Across Unrelated Places, Or Across Two Volumes,
-     * Share Nothing, And The Empty String Returned Here Means "Save Flat".
+     * Themselves. Files Spread Across Unrelated Places, or Across Two Volumes,
+     * Share Nothing, and The Empty String Returned Here Means "Save Flat".
      */
     function commonAncestor(paths) {
         if (paths.length === 0) { return ""; }
@@ -61,13 +61,13 @@
             if (parts.length === 0) { return ""; }
         }
         var root = parts.join(SEP);
-        // A Single Remaining Segment On macOS Is The Volume Root Itself
+        // A Single Remaining Segment on macOS Is The Volume Root Itself
         return (root === "") ? "" : root;
     }
 
     // macOS Uses Forward Slashes, Windows Backslashes. Building Paths From
-    // fsName Means The Separator Has To Match The Platform Or The Result Is A
-    // Mixed Path That Reads Wrong And Is Awkward To Debug.
+    // fsName Means The Separator Has To Match The Platform or The Result Is A
+    // Mixed Path That Reads Wrong and Is Awkward To Debug.
     var IS_WINDOWS = ($.os.toLowerCase().indexOf("windows") !== -1);
     var SEP        = IS_WINDOWS ? "\\" : "/";
     var LINE_END   = IS_WINDOWS ? "Windows" : "Unix";
@@ -80,7 +80,7 @@
 
     function collectFiles(folder, includeSub, includeRaw, out) {
         // getFiles() Returns null For A Folder This Process Cannot Read, Such
-        // As One Blocked By macOS Privacy Controls Or A Dropped Network Mount.
+        // As One Blocked By macOS Privacy Controls or A Dropped Network Mount.
         var items = folder.getFiles();
         if (!items) { return out; }
         for (var i = 0; i < items.length; i++) {
@@ -111,11 +111,11 @@
      * ExtendScript's PNGSaveOptions Has No "method" Property, So saveAs Never
      * Tells Photoshop Which PNG Method To Use. Photoshop Then Falls Back To
      * Whatever Was Last Chosen In Its Own PNG Format Options Dialog. Worse,
-     * compression And interlaced Are Only Honoured When The Method Is "quick",
+     * compression and interlaced Are Only Honoured When The Method Is "quick",
      * So Those Settings Are Silently Ignored Under The Other Two Methods.
-     * The Result Is A Save Whose Speed And File Size Depend On A Dialog The
+     * The Result Is A Save Whose Speed and File Size Depend on A Dialog The
      * Script Never Touched. Going Through The Action Manager Sends The Method
-     * Explicitly And Matches What Photoshop's Own Save Does.
+     * Explicitly and Matches What Photoshop's Own Save Does.
      */
     function saveCopyAsPng(doc, outFile, methodId, compressionLevel, isInterlaced) {
         function s2t(name) { return app.stringIDToTypeID(name); }
@@ -143,7 +143,7 @@
     }
 
     /*
-     * Read Back The Written File And Look For A PNG iCCP Chunk, Which Is Where
+     * Read Back The Written File and Look For A PNG iCCP Chunk, Which Is Where
      * An Embedded ICC Profile Lives. Photoshop Does Not Reliably Embed One In A
      * PNG, So The Only Trustworthy Report Is The File Itself Rather Than The
      * Setting We Asked For.
@@ -159,7 +159,7 @@
 
             // iCCP Always Precedes The Image Data, So Stop At The First IDAT.
             // Searching The Whole Buffer Would Let Compressed Pixel Data
-            // Coincidentally Spell iCCP And Report A Profile That Is Not There.
+            // Coincidentally Spell iCCP and Report A Profile That Is Not There.
             var end = head.indexOf("IDAT");
             if (end === -1) { end = head.length; }
             return head.substring(0, end).indexOf("iCCP") !== -1;
@@ -209,7 +209,7 @@
 
     var cbSubfolders = pSource.add("checkbox", undefined, "Include All Subfolders");
     cbSubfolders.value = true;
-    var cbRaw = pSource.add("checkbox", undefined, "Include Camera Raw Files (DNG, CR2, NEF, ARW And Similar)");
+    var cbRaw = pSource.add("checkbox", undefined, "Include Camera Raw Files (DNG, CR2, NEF, ARW and Similar)");
     cbRaw.value = false;
     // ScriptUI Groups Radio Buttons By Their Immediate Parent. These Two Sit In
     // Different Containers, So Exclusivity Is Enforced By Hand Below.
@@ -332,7 +332,7 @@
         syncEnabled();
     }
     // onChange Is Wired Too, Because Arrowing Through A Native Radio Group
-    // Does Not Fire onClick On Every ScriptUI Build, Which Would Leave Two
+    // Does Not Fire onClick on Every ScriptUI Build, Which Would Leave Two
     // Of These Selected At Once.
     rbLarge.onClick  = rbLarge.onChange  = function () { selectCompression(rbLarge); };
     rbMedium.onClick = rbMedium.onChange = function () { selectCompression(rbMedium); };
@@ -383,7 +383,7 @@
     var saveSame     = rbSame.value;
     var keepTree     = cbKeepTree.value && cbKeepTree.enabled;
     // The Three Named Choices Are Photoshop's Own PNG Methods. Compression Is
-    // A Sub-Setting Of The Fast Method Only, Which Is Why Custom Uses "quick".
+    // A Sub-Setting of The Fast Method Only, Which Is Why Custom Uses "quick".
     var pngMethod   = "thorough";
     var compression = 6;
     if (rbLarge.value)       { pngMethod = "quick";    compression = 1; }
@@ -401,13 +401,13 @@
     var writeLog     = cbLog.value;
 
     if (doResize && (isNaN(maxW) || isNaN(maxH) || maxW < 1 || maxH < 1)) {
-        alert("Resize Width And Height Must Be Whole Numbers Above Zero.");
+        alert("Resize Width and Height Must Be Whole Numbers Above Zero.");
         return;
     }
 
     var sourceFolder = null;
     if (!useOpenFiles) {
-        // Paths Pasted From Finder Or Explorer Often Carry Trailing Whitespace
+        // Paths Pasted From Finder or Explorer Often Carry Trailing Whitespace
         var sourcePath = trimStr(txtSource.text);
         if (sourcePath === "") { alert("No Source Folder Was Selected."); return; }
         sourceFolder = new Folder(sourcePath);
@@ -434,7 +434,7 @@
         var destRoot = stripTrailingSep(destFolder.fsName);
         if (samePath(destRoot.substring(0, srcRoot.length), srcRoot)) {
             alert("The Destination Folder Is Inside The Source Folder.\n\n" +
-                  "Choose A Destination Outside It, Or The Next Run Will " +
+                  "Choose A Destination Outside It, or The Next Run Will " +
                   "Convert This Run's Output Again.");
             return;
         }
@@ -461,8 +461,8 @@
      *
      * With A Chosen Source Folder That Is Simply The Folder. With Open Files
      * There Is No Such Choice, So The Deepest Folder The Documents Share Is
-     * Used Instead. Documents That Have Never Been Saved Have No Path And Are
-     * Left Out Of That Calculation.
+     * Used Instead. Documents That Have Never Been Saved Have No Path and Are
+     * Left Out of That Calculation.
      */
     var treeRoot = "";
     if (!useOpenFiles) {
@@ -501,7 +501,7 @@
 
     // Everything From Here To The finally Runs With Photoshop's Preferences
     // Changed. Without finally, A Throw Anywhere In Between Would Leave Dialogs
-    // Suppressed And Rulers Pinned To Pixels For The Rest Of The Session, With
+    // Suppressed and Rulers Pinned To Pixels For The Rest of The Session, With
     // Nothing To Tell The User Why.
     try {
 
@@ -544,7 +544,7 @@
         progressText.characters = 46;
         progressBar = progress.add("progressbar", undefined, 0, 0, jobs.length);
         // Set The Range Explicitly Too. The Positional Form Has Bitten Us Once
-        // Already And Differs In Behaviour Across Photoshop Versions.
+        // Already and Differs In Behaviour Across Photoshop Versions.
         progressBar.minvalue = 0;
         progressBar.maxvalue = jobs.length;
         progressBar.value    = 0;
@@ -560,12 +560,12 @@
 
         progress.center();
         progressText.text = "Starting " + jobs.length + " File(s)...";
-        progress.add("statictext", undefined, "Press Stop, Or Hold Esc, To Finish After The Current File");
+        progress.add("statictext", undefined, "Press Stop, or Hold Esc, To Finish After The Current File");
         progress.show();
 
-        // A Palette Is Only Painted When The Script Yields, And The Conversion
-        // Loop Below Never Yields On Its Own. Force Paint Cycles Here So The
-        // Window Is On Screen Before The First File Is Opened, Rather Than
+        // A Palette Is Only Painted When The Script Yields, and The Conversion
+        // Loop Below Never Yields on Its Own. Force Paint Cycles Here So The
+        // Window Is on Screen Before The First File Is Opened, Rather Than
         // Surfacing Part Way Through The Run.
         progress.update();
         app.refresh();
@@ -577,14 +577,14 @@
     /*
      * Repaint The Progress Window.
      *
-     * A ScriptUI Palette Is Only Redrawn When The Script Yields, And This
+     * A ScriptUI Palette Is Only Redrawn When The Script Yields, and This
      * Conversion Loop Holds The Thread From Start To Finish. On macOS
-     * Window.update() Is Usually Enough; On Windows It Frequently Is Not, And
-     * The Window Stays Frozen On Whatever It Displayed When First Shown.
+     * Window.update() Is Usually Enough; on Windows It Frequently Is Not, and
+     * The Window Stays Frozen on Whatever It Displayed When First Shown.
      *
      * So Every Surface That Might Repaint Gets Nudged: The Window Title, Which
-     * The OS Draws Rather Than ScriptUI, A Forced Re-Layout, And Finally
-     * update(). Whichever One Works On A Given Machine, The Operator Sees
+     * The OS Draws Rather Than ScriptUI, A Forced Re-Layout, and Finally
+     * update(). Whichever One Works on A Given Machine, The Operator Sees
      * Movement.
      */
     function pumpProgress(text, value) {
@@ -595,7 +595,7 @@
                 progressText.text = text;
                 progress.text = text;        // Title Bar Is Drawn By The OS
             }
-            // Older Photoshop Builds May Not Support This, And A Failure Here
+            // Older Photoshop Builds May Not Support This, and A Failure Here
             // Must Not Prevent The update() Call Below From Running.
             try { progress.layout.layout(true); } catch (noLayout) {}
             progress.update();
@@ -655,7 +655,7 @@
                 outFolder = new Folder(srcFolderFs);
             } else if (keepTree && treeRoot !== "") {
                 // Slice Only When The Prefix Genuinely Matches. A Trailing
-                // Separator, An Alias, Or A Windows Short Name Would Otherwise
+                // Separator, An Alias, or A Windows Short Name Would Otherwise
                 // Produce A Relative Path That Lands Somewhere Unrelated.
                 var base = treeRoot;
                 var rel  = samePath(srcFolderFs.substring(0, base.length), base)
@@ -672,7 +672,7 @@
                 continue;
             }
 
-            // The File Constructor Decodes %xx, And label Has Already Been
+            // The File Constructor Decodes %xx, and label Has Already Been
             // Decoded Once. Without Re-Escaping, "100%20off" Would Be Written
             // To Disk As "100 off".
             var outBase = stripTrailingSep(outFolder.fsName);
@@ -691,7 +691,7 @@
             }
 
             // Two Different Sources Can Produce The Same Output Name, Either
-            // From Different Subfolders Flattened Into One Destination Or From
+            // From Different Subfolders Flattened Into One Destination or From
             // The Same Folder With Different Extensions. Silently Overwriting
             // One With The Other Would Lose A File.
             var claimKey = String(png.fsName).toLowerCase();
@@ -709,7 +709,7 @@
             // --- Open If Needed ---
             if (doc === null) {
                 // Without Explicit Options, A Raw File Opens The Camera Raw
-                // Dialog And The Batch Stops Dead Waiting For A Click.
+                // Dialog and The Batch Stops Dead Waiting For A Click.
                 if (RAW_FORMATS.test(decodeURI(job.file.name))) {
                     try {
                         doc = app.open(job.file, new CameraRAWOpenOptions());
@@ -722,10 +722,10 @@
                 openedHere = true;
             }
 
-            // Photoshop Routes saveAs And Several Other Operations Through The
-            // Active Document, Not The One The Method Is Called On. Without This
+            // Photoshop Routes saveAs and Several Other Operations Through The
+            // Active Document, Not The One The Method Is Called on. Without This
             // Every Pass Saves Whichever File Happens To Be Frontmost, Which Looks
-            // Like The Same Document Being Processed Over And Over.
+            // Like The Same Document Being Processed Over and Over.
             app.activeDocument = doc;
 
             // --- Formats PNG Cannot Hold ---
@@ -743,7 +743,7 @@
                 continue;
             }
 
-            // --- Resize On A Duplicate So The Original Is Never Altered ---
+            // --- Resize on A Duplicate So The Original Is Never Altered ---
             if (doResize) {
                 work = doc.duplicate();
                 app.activeDocument = work;   // duplicate() Changes The Active Document
@@ -757,7 +757,7 @@
             try {
                 saveCopyAsPng(work, png, pngMethod, compression, interlaced);
             } catch (amError) {
-                // Fall Back To The DOM Save So A Run Never Dies On This Alone.
+                // Fall Back To The DOM Save So A Run Never Dies on This Alone.
                 // The Flag Is Set Only After The Fallback Succeeds, Otherwise A
                 // Genuine Failure Would Report That Files Were Written With The
                 // Wrong Settings When Nothing Was Written At All.
@@ -783,7 +783,7 @@
         // Cleanup Sits Outside The try Above For Two Reasons. A Throwing
         // close() Must Not Add A File That Already Converted To The Failed List
         // As Well, Which Would Make The Tallies Disagree. And Each close() Needs
-        // Its Own Guard, Or A Failure Closing The Resize Duplicate Would Strand
+        // Its Own Guard, or A Failure Closing The Resize Duplicate Would Strand
         // The Document This Script Opened, Leaking One Per File Across A Batch.
         try {
             if (work !== null && work !== doc) { work.close(SaveOptions.DONOTSAVECHANGES); }
@@ -818,16 +818,16 @@
                (pngMethod === "quick" ? " (Compression " + compression + ")" : "") +
                (interlaced ? " + Interlaced" : ""));
     if (profilesEmbedded === converted && converted > 0) {
-        lines.push("Color Profile: Embedded And Verified In All " + converted + " File(s)");
+        lines.push("Color Profile: Embedded and Verified In All " + converted + " File(s)");
     } else if (profilesEmbedded > 0) {
         lines.push("Color Profile: Embedded In Only " + profilesEmbedded + " Of " + converted + " File(s)");
     } else {
         lines.push("Color Profile: None. Photoshop Does Not Write An ICC Profile");
-        lines.push("               Into A PNG, By Script Or By Hand. Output Is");
-        lines.push("               Untagged And Will Be Read As sRGB.");
+        lines.push("               Into A PNG, By Script or By Hand. Output Is");
+        lines.push("               Untagged and Will Be Read As sRGB.");
     }
     if (usedFallback) {
-        lines.push("WARNING: Action Manager Save Failed On At Least One File;");
+        lines.push("WARNING: Action Manager Save Failed on At Least One File;");
         lines.push("         The Fallback Ignores The PNG Method Setting.");
     }
     if (converted > 0) {
@@ -868,7 +868,7 @@
             var log = new File(logFolder.fsName + SEP + "PNG_Export_Log.txt");
             log.encoding = "UTF-8";
             // ExtendScript Rewrites Line Endings To The Platform Default, Which
-            // On macOS Collapses "\r\n" To A Bare CR And Leaves The Log As One
+            // On macOS Collapses "\r\n" To A Bare CR and Leaves The Log As One
             // Unreadable Line. Pin It To The Platform's Convention Instead.
             log.lineFeed = LINE_END;
             log.open("w");
