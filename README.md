@@ -4,7 +4,7 @@ Batch converts open documents or any folder of images to PNG, preserving
 the source folder structure. Modelled on Adobe's Image Processor, which
 does not offer PNG output.
 
-- **Version:** 1.3
+- **Version:** 1.4
 - **Type:** ExtendScript (`.jsx`)
 - **Requires:** Photoshop CS6 or newer (see Older Versions below)
 
@@ -97,6 +97,26 @@ method explicitly. The three named choices map to Photoshop's own:
 
 Compression 0 means *stored* — no compression at all. It produces larger
 files that are slower to write. Use 1 for speed, not 0.
+
+### Keep Folder Structure
+
+With a chosen source folder, structure is measured from that folder.
+
+With open documents there is no chosen folder, so the deepest folder the
+documents share is used instead. Open three files from
+`DONE/PSD/01_SKU/…`, `DONE/PSD/02_SKU/…` and `DONE/PSD/13_SKU/…` and the
+tree is recreated from `DONE/PSD` down.
+
+Documents never saved to disk have no path and are left out of that
+calculation. If the open files share no common folder — spread across
+unrelated places, or across two volumes — the script says so and asks
+before saving everything flat into the destination.
+
+The log records which folder was used:
+
+```text
+Structure Measured From: /Users/you/Downloads/DONE/PSD
+```
 
 ### Colour Profiles
 

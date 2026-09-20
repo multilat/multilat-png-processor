@@ -5,7 +5,7 @@
  * Purpose: Batch Convert Open Documents Or Any Folder Of Images To PNG
  *          While Preserving The Source Folder Structure
  *
- * Version: 1.3
+ * Version: 1.4
  * Author: Multilat
  */
 
@@ -39,6 +39,30 @@
 
     function stripTrailingSep(path) {
         return String(path).replace(/[\\\/]+$/, "");
+    }
+
+    /*
+     * Deepest Folder That Every Given Path Shares.
+     *
+     * Open Documents Have No Single Chosen Source Folder, So When Their Tree
+     * Has To Be Recreated Somewhere Else The Root Is Derived From The Documents
+     * Themselves. Files Spread Across Unrelated Places, Or Across Two Volumes,
+     * Share Nothing, And The Empty String Returned Here Means "Save Flat".
+     */
+    function commonAncestor(paths) {
+        if (paths.length === 0) { return ""; }
+        var parts = String(paths[0]).split(SEP);
+        for (var i = 1; i < paths.length; i++) {
+            var other = String(paths[i]).split(SEP);
+            var limit = Math.min(parts.length, other.length);
+            var k = 0;
+            while (k < limit && samePath(parts[k], other[k])) { k++; }
+            parts = parts.slice(0, k);
+            if (parts.length === 0) { return ""; }
+        }
+        var root = parts.join(SEP);
+        // A Single Remaining Segment On macOS Is The Volume Root Itself
+        return (root === "") ? "" : root;
     }
 
     // macOS Uses Forward Slashes, Windows Backslashes. Building Paths From
@@ -292,7 +316,7 @@
         var toOther = rbOther.value;
         txtDest.enabled = toOther;
         btnDest.enabled = toOther;
-        cbKeepTree.enabled = toOther && byFolder;
+        cbKeepTree.enabled = toOther;
 
         txtW.enabled = cbResize.value;
         txtH.enabled = cbResize.value;
@@ -430,6 +454,34 @@
             return;
         }
         for (var s = 0; s < found.length; s++) { jobs.push({ doc: null, file: found[s] }); }
+    }
+
+    /*
+     * The Folder That Recreated Structure Is Measured From.
+     *
+     * With A Chosen Source Folder That Is Simply The Folder. With Open Files
+     * There Is No Such Choice, So The Deepest Folder The Documents Share Is
+     * Used Instead. Documents That Have Never Been Saved Have No Path And Are
+     * Left Out Of That Calculation.
+     */
+    var treeRoot = "";
+    if (!useOpenFiles) {
+        treeRoot = stripTrailingSep(sourceFolder.fsName);
+    } else if (keepTree && !saveSame) {
+        var docPaths = [];
+        for (var t = 0; t < jobs.length; t++) {
+            try { docPaths.push(jobs[t].doc.path.fsName); } catch (unsavedDoc) {}
+        }
+        treeRoot = stripTrailingSep(commonAncestor(docPaths));
+    }
+
+    // Warn Before Writing Anything, Because Flat Output Is Not What Was Asked For
+    if (useOpenFiles && keepTree && !saveSame && treeRoot === "") {
+        if (!confirm("The Open Files Share No Common Folder, So Their Structure " +
+                     "Cannot Be Recreated.\n\nSave Them All Into The Destination " +
+                     "Folder Instead?")) {
+            return;
+        }
     }
 
     if (!confirm("Found " + jobs.length + " File(s).\n\nConvert Them To PNG Now?")) { return; }
@@ -601,11 +653,11 @@
             var outFolder;
             if (saveSame) {
                 outFolder = new Folder(srcFolderFs);
-            } else if (keepTree && sourceFolder !== null) {
+            } else if (keepTree && treeRoot !== "") {
                 // Slice Only When The Prefix Genuinely Matches. A Trailing
                 // Separator, An Alias, Or A Windows Short Name Would Otherwise
                 // Produce A Relative Path That Lands Somewhere Unrelated.
-                var base = stripTrailingSep(sourceFolder.fsName);
+                var base = treeRoot;
                 var rel  = samePath(srcFolderFs.substring(0, base.length), base)
                     ? srcFolderFs.substring(base.length)
                     : "";
@@ -759,6 +811,9 @@
     lines.push("PNG Export Log");
     lines.push("Source: " + (useOpenFiles ? "Open Files" : sourceFolder.fsName));
     lines.push("Destination: " + (saveSame ? "Same Location As Source" : destFolder.fsName));
+    if (!saveSame && keepTree) {
+        lines.push("Structure Measured From: " + (treeRoot !== "" ? treeRoot : "No Common Folder, Saved Flat"));
+    }
     lines.push("PNG Method: " + pngMethod +
                (pngMethod === "quick" ? " (Compression " + compression + ")" : "") +
                (interlaced ? " + Interlaced" : ""));
