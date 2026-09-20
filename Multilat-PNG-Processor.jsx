@@ -19,6 +19,13 @@
         return folder.create();
     }
 
+    // macOS Uses Forward Slashes, Windows Backslashes. Building Paths From
+    // fsName Means The Separator Has To Match The Platform Or The Result Is A
+    // Mixed Path That Reads Wrong And Is Awkward To Debug.
+    var IS_WINDOWS = ($.os.toLowerCase().indexOf("windows") !== -1);
+    var SEP        = IS_WINDOWS ? "\\" : "/";
+    var LINE_END   = IS_WINDOWS ? "Windows" : "Unix";
+
     // Formats Photoshop Opens Without Showing An Import Dialog
     var STANDARD_FORMATS = /\.(psd|psb|tif|tiff|jpg|jpeg|jpe|png|gif|bmp|dib|tga|targa|webp|heic|heif|jp2|j2k|jpf|exr|hdr|sgi|rle|pbm|pgm|ppm|pcx|ico)$/i;
 
@@ -507,7 +514,7 @@
                 continue;
             }
 
-            var png = new File(outFolder.fsName + "/" + label + ".png");
+            var png = new File(outFolder.fsName + SEP + label + ".png");
 
             // Never Let A Source PNG Be Written Over Itself
             var sourceFs = "";
@@ -662,12 +669,12 @@
     if (writeLog) {
         try {
             var logFolder = saveSame ? (useOpenFiles ? Folder.desktop : sourceFolder) : destFolder;
-            var log = new File(logFolder.fsName + "/PNG_Export_Log.txt");
+            var log = new File(logFolder.fsName + SEP + "PNG_Export_Log.txt");
             log.encoding = "UTF-8";
             // ExtendScript Rewrites Line Endings To The Platform Default, Which
             // On macOS Collapses "\r\n" To A Bare CR And Leaves The Log As One
             // Unreadable Line. Pin It To Unix Line Endings Instead.
-            log.lineFeed = "Unix";
+            log.lineFeed = LINE_END;
             log.open("w");
             log.write(lines.join("\n"));
             log.close();

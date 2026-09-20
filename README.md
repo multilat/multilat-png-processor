@@ -10,21 +10,51 @@ does not offer PNG output.
 
 ## Install
 
-Double-click `Install-Script.command`. It copies the script into every
-Photoshop installation found in `/Applications` and will ask for an
-administrator password, because the Presets folder is root-owned.
+The script itself is cross-platform. Only the installer differs.
 
-Then **quit Photoshop completely (Cmd+Q) and reopen it**. The Scripts
-menu is only read at launch.
+### Windows
+
+Right-click `Install-Script.bat` and choose **Run as administrator**.
+If you double-click it instead, it asks for elevation itself.
+
+Photoshop's `Presets\Scripts` folder lives under Program Files, which is
+protected, so administrator rights are required either way.
+
+### macOS
+
+Double-click `Install-Script.command`. It asks for an administrator
+password, because the Presets folder is root-owned.
+
+If macOS blocks it as an unidentified developer, right-click the file and
+choose **Open**, then confirm.
+
+### Both Platforms
+
+Afterwards, **quit Photoshop completely and reopen it**. The Scripts menu
+is only read at launch.
 
 The script appears under **File > Scripts > Multilat-PNG-Processor**.
 
 ### Manual Install
 
-```bash
-sudo cp Multilat-PNG-Processor.jsx \
-  "/Applications/Adobe Photoshop 2026/Presets/Scripts/"
+Copy `Multilat-PNG-Processor.jsx` into the Photoshop application's
+`Presets/Scripts` folder:
+
+**Windows:**
+
+```text
+C:\Program Files\Adobe\Adobe Photoshop 2026\Presets\Scripts\
 ```
+
+**macOS:**
+
+```text
+/Applications/Adobe Photoshop 2026/Presets/Scripts/
+```
+
+Do **not** use the user-level folder. On macOS,
+`~/Library/Application Support/Adobe/.../Presets/Scripts` is never
+scanned for scripts, unlike other preset types.
 
 ## Usage
 
@@ -90,6 +120,11 @@ document first.
 Keep this file **pure ASCII**. A `.jsx` without a byte-order mark is read
 using the system encoding, and a single non-ASCII character — an em dash
 in a comment is enough — stops the script parsing with no error message.
+
+### Line Endings
+
+`.bat` files must keep CRLF line endings or Windows may mis-parse them.
+`.gitattributes` pins this, so do not override it.
 
 ## Maintenance
 

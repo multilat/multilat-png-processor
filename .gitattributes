@@ -1,0 +1,9 @@
+* text=auto
+
+# Batch Files Break With LF Line Endings
+*.bat text eol=crlf
+
+# Shell And Script Files Must Keep LF
+*.command text eol=lf
+*.jsx     text eol=lf
+*.md      text eol=lf
