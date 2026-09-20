@@ -5,7 +5,7 @@
  * Purpose: Batch Convert Open Documents Or Any Folder Of Images To PNG
  *          While Preserving The Source Folder Structure
  *
- * Version: 1.0
+ * Version: 1.1
  * Author: Multilat
  */
 
@@ -434,11 +434,11 @@
         var btnStop = rowStop.add("button", undefined, "Stop");
         btnStop.onClick = function () {
             cancelled = true;
-            progressText.text = "Stopping After The Current File...";
+            pumpProgress("Stopping After The Current File...", null);
         };
 
         progress.center();
-        progressText.text = "Preparing " + jobs.length + " File(s)...";
+        progressText.text = "Starting " + jobs.length + " File(s)...";
         progress.show();
 
         // A Palette Is Only Painted When The Script Yields, And The Conversion
@@ -452,6 +452,34 @@
         progress = null;
     }
 
+    /*
+     * Repaint The Progress Window.
+     *
+     * A ScriptUI Palette Is Only Redrawn When The Script Yields, And This
+     * Conversion Loop Holds The Thread From Start To Finish. On macOS
+     * Window.update() Is Usually Enough; On Windows It Frequently Is Not, And
+     * The Window Stays Frozen On Whatever It Displayed When First Shown.
+     *
+     * So Every Surface That Might Repaint Gets Nudged: The Window Title, Which
+     * The OS Draws Rather Than ScriptUI, A Forced Re-Layout, And Finally
+     * update(). Whichever One Works On A Given Machine, The Operator Sees
+     * Movement.
+     */
+    function pumpProgress(text, value) {
+        if (progress === null) { return; }
+        try {
+            if (value !== null) { progressBar.value = value; }
+            if (text !== null) {
+                progressText.text = text;
+                progress.text = text;        // Title Bar Is Drawn By The OS
+            }
+            progress.layout.layout(true);    // Forces A Re-Layout And Repaint
+            progress.update();
+        } catch (paintError) {
+            // A Progress Window That Cannot Repaint Must Never Stop The Run
+        }
+    }
+
     for (var j = 0; j < jobs.length; j++) {
 
         var job = jobs[j];
@@ -461,10 +489,7 @@
         var label = "";
 
         // Pump The Palette So The Stop Button Can Be Clicked Mid-Run
-        if (progress !== null) {
-            progressBar.value = j;
-            progress.update();
-        }
+        pumpProgress(null, j);
         if (userPressedEscape()) { cancelled = true; }
         if (cancelled) { break; }
 
@@ -477,10 +502,7 @@
                 label = baseName(job.file.name);
             }
 
-            if (progress !== null) {
-                progressText.text = (j + 1) + " Of " + jobs.length + ":  " + label;
-                progress.update();
-            }
+            pumpProgress((j + 1) + " Of " + jobs.length + ":  " + label, j);
 
             // --- Work Out Where The PNG Goes ---
             var srcFolderFs;
@@ -604,7 +626,7 @@
     }
 
     if (progress !== null) {
-        progressBar.value = jobs.length;
+        pumpProgress("Finishing...", jobs.length);
         progress.close();
     }
 

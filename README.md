@@ -4,7 +4,7 @@ Batch converts open documents or any folder of images to PNG, preserving
 the source folder structure. Modelled on Adobe's Image Processor, which
 does not offer PNG output.
 
-- **Version:** 1.0
+- **Version:** 1.1
 - **Type:** ExtendScript (`.jsx`)
 - **Requires:** Photoshop 2024 or newer
 
