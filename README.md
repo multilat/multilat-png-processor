@@ -7,6 +7,9 @@ does not offer PNG output.
 - **Version:** 1.5
 - **Type:** ExtendScript (`.jsx`)
 - **Requires:** Photoshop CS6 or newer (see Older Versions below)
+- **Platforms:** Windows and macOS
+
+![The Convert To PNG dialog](docs/dialog.png)
 
 ## Install
 
@@ -58,13 +61,59 @@ scanned for scripts, unlike other preset types.
 
 ## Usage
 
-1. **Select Images** — use the open documents, or point it at a folder
-   with optional subfolder recursion. Camera Raw formats are opt-in.
-2. **Select Location To Save** — beside each source, or into a separate
-   folder with the source tree recreated.
-3. **File Type** — the three named levels are Photoshop's own PNG
-   methods. Custom exposes compression 0 to 9.
-4. **Preferences** — overwrite existing PNGs, write a log file.
+Open **File > Scripts > Multilat-PNG-Processor**.
+
+### 1. Select Images
+
+**Use Open Files** converts every document currently open in Photoshop.
+
+**Use Folder** converts a folder on disk. *Include All Subfolders* walks
+the whole tree. *Include Camera Raw Files* adds DNG, CR2, NEF, ARW and
+similar; leave it off unless you need it, because raw files open through
+the Camera Raw engine and are much slower.
+
+Accepted input: PSD, PSB, TIFF, JPEG, PNG, GIF, BMP, TGA, WebP, HEIC,
+JP2, EXR, HDR and others.
+
+### 2. Select Location To Save
+
+**Save In Same Location** writes each PNG beside its source.
+
+**Select Folder** writes everything into one folder. With *Keep Folder
+Structure* the source tree is recreated inside it — see Keep Folder
+Structure below for how the root is chosen.
+
+### 3. File Type
+
+The three named levels are Photoshop's own PNG methods, identical to its
+Save As dialog. **Custom** exposes compression 0 to 9 directly.
+
+Since PNG is lossless, this only trades saving time against file size.
+**Large File Size (Fastest Saving) is the sensible default** for most
+work — see the benchmark below.
+
+*Interlacing* produces a progressively-loading file, slightly larger.
+*Resize To Fit* scales output to fit the given box, never upscaling.
+
+### 4. Preferences
+
+*Overwrite Existing PNG Files* replaces output already on disk; left off,
+those files are skipped and listed in the log. *Write Log File* records
+what happened.
+
+### While It Runs
+
+A progress window shows position and filename. **Hold Esc** to stop after
+the current file; it never interrupts a write mid-file.
+
+### A Worked Example
+
+To convert a tree of PSDs to PNGs beside each original:
+
+1. **Use Folder**, browse to the top folder, tick *Include All Subfolders*
+2. **Save In Same Location**
+3. **Large File Size (Fastest Saving)**
+4. Run, then check `PNG_Export_Log.txt` for `Failed: 0`
 
 A progress window reports position. **Hold Esc** to stop after the
 current file finishes — it never interrupts a write mid-file.

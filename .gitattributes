@@ -7,3 +7,7 @@
 *.command text eol=lf
 *.jsx     text eol=lf
 *.md      text eol=lf
+
+# Binary Assets
+*.png binary
+*.jpg binary
