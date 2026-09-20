@@ -5,7 +5,7 @@
  * Purpose: Batch Convert Open Documents or Any Folder of Images To PNG
  *          While Preserving The Source Folder Structure
  *
- * Version: 1.4
+ * Version: 1.5
  * Author: Multilat
  */
 
@@ -520,8 +520,10 @@
     // Claimed Output Paths, So Two Sources Cannot Quietly Map To One File
     var usedNames = {};
 
-    // Esc Is The Habitual Way To Stop A Script, So Honour It As Well As The
-    // Stop Button. keyboardState Is Not Available Everywhere, Hence The Guard.
+    // Esc Is The Only Way To Stop A Run Once It Begins, For The Reason Given
+    // Beside The Progress Window Below. keyboardState Reports The Key Held At
+    // This Instant, So Esc Has To Be Held Rather Than Tapped. It Is Not
+    // Available Everywhere, Hence The Guard.
     function userPressedEscape() {
         try {
             return ScriptUI.environment.keyboardState.keyName === "Escape";
@@ -550,17 +552,14 @@
         progressBar.value    = 0;
         progressBar.preferredSize.width = 340;
 
-        var rowStop = progress.add("group");
-        rowStop.alignment = "right";
-        var btnStop = rowStop.add("button", undefined, "Stop");
-        btnStop.onClick = function () {
-            cancelled = true;
-            pumpProgress("Stopping After The Current File...", null);
-        };
-
+        // There Is Deliberately No Stop Button. A ScriptUI Palette Only
+        // Dispatches Clicks While The Script Yields, and This Loop Holds The
+        // Thread From Start To Finish, So A Button Would Be Clickable Only For
+        // The Few Milliseconds Between Files. Esc Is Polled At The Top of Every
+        // Iteration Instead, Which Works Reliably.
         progress.center();
         progressText.text = "Starting " + jobs.length + " File(s)...";
-        progress.add("statictext", undefined, "Press Stop, or Hold Esc, To Finish After The Current File");
+        progress.add("statictext", undefined, "Hold Esc To Stop After The Current File");
         progress.show();
 
         // A Palette Is Only Painted When The Script Yields, and The Conversion
