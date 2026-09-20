@@ -5,7 +5,7 @@
  * Purpose: Batch Convert Open Documents Or Any Folder Of Images To PNG
  *          While Preserving The Source Folder Structure
  *
- * Version: 1.1
+ * Version: 1.2
  * Author: Multilat
  */
 
@@ -426,7 +426,12 @@
         progress.margins = 16;
         progressText = progress.add("statictext", undefined, "Starting...");
         progressText.characters = 46;
-        progressBar = progress.add("progressbar", undefined, 0, jobs.length);
+        progressBar = progress.add("progressbar", undefined, 0, 0, jobs.length);
+        // Set The Range Explicitly Too. The Positional Form Has Bitten Us Once
+        // Already And Differs In Behaviour Across Photoshop Versions.
+        progressBar.minvalue = 0;
+        progressBar.maxvalue = jobs.length;
+        progressBar.value    = 0;
         progressBar.preferredSize.width = 340;
 
         var rowStop = progress.add("group");
@@ -473,7 +478,9 @@
                 progressText.text = text;
                 progress.text = text;        // Title Bar Is Drawn By The OS
             }
-            progress.layout.layout(true);    // Forces A Re-Layout And Repaint
+            // Older Photoshop Builds May Not Support This, And A Failure Here
+            // Must Not Prevent The update() Call Below From Running.
+            try { progress.layout.layout(true); } catch (noLayout) {}
             progress.update();
         } catch (paintError) {
             // A Progress Window That Cannot Repaint Must Never Stop The Run

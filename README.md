@@ -4,9 +4,9 @@ Batch converts open documents or any folder of images to PNG, preserving
 the source folder structure. Modelled on Adobe's Image Processor, which
 does not offer PNG output.
 
-- **Version:** 1.1
+- **Version:** 1.2
 - **Type:** ExtendScript (`.jsx`)
-- **Requires:** Photoshop 2024 or newer
+- **Requires:** Photoshop CS6 or newer (see Older Versions below)
 
 ## Install
 
@@ -125,6 +125,21 @@ in a comment is enough — stops the script parsing with no error message.
 
 `.bat` files must keep CRLF line endings or Windows may mis-parse them.
 `.gitattributes` pins this, so do not override it.
+
+### Older Versions
+
+The PNG method is set through the Action Manager, and the `PNGMethod`
+key was only introduced in Photoshop CC 2018. On anything older, that
+save fails and the script falls back to `doc.saveAs()`, which cannot set
+the method. Conversion still works, but the File Size choice is ignored
+and Photoshop uses whatever was last set in its own PNG dialog.
+
+The log says so when this happens:
+
+```text
+WARNING: Action Manager Save Failed On At Least One File;
+         The Fallback Ignores The PNG Method Setting.
+```
 
 ## Maintenance
 
