@@ -102,17 +102,21 @@ method explicitly. The three named choices map to Photoshop's own:
 | Medium File Size (Medium Saving)     | `moderate` |
 | Smallest File Size (Slowest Saving)  | `thorough` |
 
-All three are verified working on Photoshop 2026. Measured over the same
+All three are verified working on Photoshop 2026, measured over the same
 12 files:
 
-| Method     | Time per file | Output per file |
-| ---------- | ------------- | --------------- |
-| `quick`    | 462 ms        | 1158 KB         |
-| `moderate` | 664 ms        | 992 KB          |
-| `thorough` | 1360 ms       | 936 KB          |
+| Method     | Total time | Per file | Total output | Per file |
+| ---------- | ---------- | -------- | ------------ | -------- |
+| `quick`    | 5.6 s      | 467 ms   | 12.2 MB      | 1044 KB  |
+| `moderate` | 8.0 s      | 664 ms   | 11.6 MB      | 992 KB   |
+| `thorough` | 16.3 s     | 1360 ms  | 11.0 MB      | 936 KB   |
 
-Time rises and size falls across the three, and file-by-file the ordering
-holds, so each method is genuinely distinct.
+`thorough` takes roughly three times as long as `quick` for about 10 per
+cent less data. The ordering holds on every individual file, so the three
+methods are genuinely distinct rather than aliases.
+
+PNG is lossless, so the pixels are byte-identical at every setting. Only
+saving time and file size change.
 
 Compression 0 means *stored* — no compression at all. It produces larger
 files that are slower to write. Use 1 for speed, not 0.
